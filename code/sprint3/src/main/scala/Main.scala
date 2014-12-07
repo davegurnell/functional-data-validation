@@ -33,6 +33,20 @@ object Main extends App {
 
   type Rule[-A, +B] = A => Result[B]
 
+  implicit class RuleOps[A, B](rule: Rule[A, B]) {
+    def map[C](func: B => C): Rule[A, C] =
+      (a: A) => rule(a) map func
+
+    def flatMap[C](rule2: Rule[B, C]): Rule[A, C] =
+      (a: A) => rule(a) flatMap rule2
+
+    def and[C, D](rule2: Rule[A, C])(func: (B, C) => D): Rule[A, D] =
+      (a: A) => (rule(a) and rule2(a))(func)
+  }
+
+  def rule[A]: Rule[A, A] =
+    (input: A) => Pass(input)
+
   // Application code ---------------------------
 
   type FormData = Map[String, String]
@@ -41,28 +55,37 @@ object Main extends App {
 
   // Validating existing addresses:
 
-  def nonEmpty(str: String): Result[String] =
-    if(str.isEmpty) Fail(List("Empty string")) else Pass(str)
+  val nonEmpty: Rule[String, String] =
+    (str: String) =>
+      if(str.isEmpty)
+        Fail(List("Empty string"))
+      else
+        Pass(str)
 
-  def initialCap(str: String): Result[String] =
-    if(str(0).isUpper) Pass(str) else Fail(List("No initial cap"))
+  val initialCap: Rule[String, String] =
+    (str: String) =>
+      if(str(0).isUpper)
+        Pass(str)
+      else
+        Fail(List("No initial cap"))
 
+  // Alternative to initialCap.
+  // Capitalize the first letter instead of failing:
   def capitalize(str: String): String =
     str(0).toUpper +: str.substring(1)
 
-  def gte(min: Int)(num: Int) =
+  def gte(min: Int) = (num: Int) =>
     if(num < min) Fail(List("Too small")) else Pass(num)
 
-  def checkStreet(str: String): Result[String] =
-    nonEmpty(str).flatMap(initialCap)
-    // or nonEmpty(str).map(capitalize)
+  val checkNumber: Rule[Address, Int] =
+    rule[Address] map (_.number) flatMap gte(1)
 
-  def checkAddress(addr: Address) = {
-    val numberResult = gte(1)(addr.number)
-    val streetResult = checkStreet(addr.street)
+  val checkStreet: Rule[Address, String] =
+    rule[Address] map (_.street) flatMap nonEmpty flatMap initialCap
+    // rule[Address] map (_.street) flatMap nonEmpty map capitalize
 
-    numberResult.and(streetResult)(Address.apply)
-  }
+  val checkAddress: Rule[Address, Address] =
+    (checkNumber and checkStreet)(Address.apply)
 
   // Reading form data:
 
@@ -72,20 +95,23 @@ object Main extends App {
       map(Pass.apply).
       getOrElse(Fail(List(s"Field not found")))
 
-  def parseInt(str: String): Result[Int] =
-    try {
-      Pass(str.toInt)
-    } catch {
-      case exn: NumberFormatException =>
-        Fail(List("Not a number"))
-    }
+  val parseInt: Rule[String, Int] =
+    (str: String) =>
+      try {
+        Pass(str.toInt)
+      } catch {
+        case exn: NumberFormatException =>
+          Fail(List("Not a number"))
+      }
 
-  def readAddress(form: FormData): Result[Address] = {
-    val numberResult = getField("number")(form).flatMap(parseInt)
-    val streetResult = getField("street")(form)
+  val readNumber: Rule[FormData, Int] =
+    rule[FormData] flatMap getField("number") flatMap parseInt
 
-    numberResult.and(streetResult)(Address.apply).flatMap(checkAddress)
-  }
+  val readStreet: Rule[FormData, String] =
+    rule[FormData] flatMap getField("street")
+
+  val readAddress: Rule[FormData, Address] =
+    (readNumber and readStreet)(Address.apply) flatMap checkAddress
 
   println("NONUM  " + readAddress(Map("street" -> "acacia Road")))
   println("BADNUM " + readAddress(Map("number" -> "1a", "street" -> "acacia road")))

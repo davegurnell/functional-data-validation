@@ -11,6 +11,8 @@ object Main extends App {
 
   // Validation library -------------------------
 
+  final case class ~[+A, +B](_1: A, _2: B)
+
   sealed trait Result[+A] {
     def and[B, C](that: Result[B])(func: (A, B) => C) = (this, that) match {
       case (Pass(a), Pass(b)) => Pass(func(a, b))
@@ -28,6 +30,9 @@ object Main extends App {
       case Pass(a) => func(a)
       case Fail(a) => Fail(a)
     }
+
+    def ~[B](that: Result[B]): Result[A ~ B] =
+      (this and that)(new ~(_, _))
   }
 
   final case class Pass[A](value: A) extends Result[A]
@@ -44,6 +49,9 @@ object Main extends App {
 
     def and[C, D](rule2: Rule[A, C])(func: (B, C) => D): Rule[A, D] =
       (a: A) => (rule(a) and rule2(a))(func)
+
+    def ~[C](that: Rule[A, C]): Rule[A, B ~ C] =
+      (this and that)(new ~(_, _))
   }
 
   def rule[A]: Rule[A, A] =
@@ -53,23 +61,22 @@ object Main extends App {
 
   type FormData = Map[String, String]
 
-  case class Address(number: Int, street: String)
+  case class Address(number: Int, street: String, zipCode: String)
+
+  def createAddress(input: Int ~ String ~ String): Address =
+    input match {
+      case n ~ s ~ z => Address(n, s, z)
+    }
 
   // Validating existing addresses:
 
   val nonEmpty: Rule[String, String] =
     (str: String) =>
-      if(str.isEmpty)
-        Fail(List("Empty string"))
-      else
-        Pass(str)
+      if(str.isEmpty) Fail(List("Empty string")) else Pass(str)
 
   val initialCap: Rule[String, String] =
     (str: String) =>
-      if(str(0).isUpper)
-        Pass(str)
-      else
-        Fail(List("No initial cap"))
+      if(str(0).isUpper) Pass(str) else Fail(List("No initial cap"))
 
   def capitalize(str: String): String =
     str(0).toUpper +: str.substring(1)
@@ -83,16 +90,17 @@ object Main extends App {
   val checkStreet: Rule[Address, String] =
     rule[Address] map (_.street) flatMap nonEmpty map capitalize
 
+  val checkZip: Rule[Address, String] =
+    rule[Address] map (_.zipCode) flatMap nonEmpty
+
   val checkAddress: Rule[Address, Address] =
-    (checkNumber and checkStreet)(Address.apply)
+    (checkNumber ~ checkStreet ~ checkZip) map createAddress
 
   // Reading form data:
 
   def getField(name: String): Rule[FormData, String] =
     (form: FormData) =>
-      form.get(name).
-      map(Pass.apply).
-      getOrElse(Fail(List(s"Field not found")))
+      form.get(name) map (Pass.apply) getOrElse Fail(List(s"Field not found"))
 
   val parseInt: Rule[String, Int] =
     (str: String) =>
@@ -109,11 +117,13 @@ object Main extends App {
   val readStreet: Rule[FormData, String] =
     rule[FormData] flatMap getField("street")
 
-  val readAddress: Rule[FormData, Address] =
-    (readNumber and readStreet)(Address.apply)
+  val readZip: Rule[FormData, String] =
+    rule[FormData] flatMap getField("zip")
 
-  println("NONUM  " + readAddress(Map("street" -> "acacia Road")))
-  println("BADNUM " + readAddress(Map("number" -> "1a", "street" -> "acacia road")))
-  println("CAP    " + readAddress(Map("number" -> "29", "street" -> "acacia road")))
+  val readAddress: Rule[FormData, Address] =
+    (readNumber ~ readStreet ~ readZip) map createAddress flatMap checkAddress
+
+  println("GOOD " + readAddress(Map("number" -> "29", "street" -> "acacia road", "zip" -> "ABC 123")))
+  println("BAD  " + readAddress(Map("number" -> "-1", "street" -> "", "zip" -> "")))
 
 }
