@@ -1,11 +1,31 @@
 /*
-In this sprint we "lift" the map, flatMap, and and
-operations from Result to Rule. This allows us to combine
-rules directly, without wrapping in them in functions.
+In this sprint we deal with arbitrary arity using a simple HList-like
+recursive data structure `~`:
 
-We now have a pretty good DSL for combining rules in
-sequence, although we are still only able to combine
-functions in parallel in pairs using `and`.
+  val pairs: ~[~[Int, String], String] = ~(~(29, "Acacia Road"), "ABC 123")
+
+which can also be written infix:
+
+  val pairs: Int ~ String ~ String = ~(~(29, "Acacia Road"), "ABC 123")
+
+We create a combinator on `Rule` that combines rules with the same input
+type to create a single rule that outputs a nested tuple of results:
+
+  val bigRule: Rule[FormData, Int ~ String ~ String] =
+    readNumber ~ readStreet ~ readZipCode
+
+and map the result through a function that applies pattern matching to the
+tuples, extracts the fields, and creates an Address:
+
+   bigRule map {
+     case ~(~(number, street), zipCode) => Address(number, street, zipCode)
+   }
+
+this can also be written in infix form:
+
+   bigRule map {
+     case number ~ street ~ zipCode => Address(number, street, zipCode)
+   }
 */
 object Main extends App {
 

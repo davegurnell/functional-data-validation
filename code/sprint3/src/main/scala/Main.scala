@@ -1,9 +1,11 @@
 /*
-In this sprint we validate incoming form data as well as
-existing Addresses.
+In this sprint we "lift" the map, flatMap, and and
+operations from Result to Rule. This allows us to combine
+rules directly, without wrapping in them in functions.
 
-We give Rules the ability to perform arbitrary type
-conversions on the data being validated.
+We now have a pretty good DSL for combining rules in
+sequence, although we are still only able to combine
+functions in parallel in pairs using `and`.
 */
 object Main extends App {
 
