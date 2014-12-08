@@ -8,9 +8,12 @@ lazy val sprint3 = project.in(file("./sprint3"))
 
 lazy val sprint4 = project.in(file("./sprint4"))
 
+lazy val sprint4b = project.in(file("./sprint4b"))
+
 lazy val root = project.in(file(".")).aggregate(
   sprint1,
   sprint2,
   sprint3,
-  sprint4
+  sprint4,
+  sprint4b
 )
