@@ -14,7 +14,7 @@ Code licensed under the
 
 ## Overview
 
-These are the slides and code samples from my talk at Scala Exchange 2014. The talk is an entry-level discussion about the thought processes involved in designing library code using functional programming concepts.
+These are the slides and code samples from my talks at Scala Exchange 2014 and ScalaDays Amsterdam 2015. The talk is an entry-level discussion about the thought processes involved in designing library code using functional programming concepts.
 
 The basic thought process outlined is as follows:
 
