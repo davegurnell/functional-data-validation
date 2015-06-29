@@ -3,7 +3,7 @@ In this sprint we set up a basic validation library:
 
  - A rule is a function from a value to a result
  - A result is a pass or a fail
- - A pass contains a list of error messages
+ - A fail contains a list of error messages
 
 We can combine results with `and` (append semantics),
 and combine rules by running them and combining their
